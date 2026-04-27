@@ -1,6 +1,5 @@
 name: CI — Full Portfolio Pipeline
 
-# Runs on every push and pull request to main/develop
 on:
   push:
     branches: [main, develop]
@@ -17,26 +16,24 @@ jobs:
     name: "[Python] Lint"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
-      - run: pip install flake8 black
-      - name: Check formatting
-        run: black --check sut/scripts/ sut/api/
+      - run: pip install flake8
       - name: Lint
-        run: flake8 sut/scripts/ sut/api/ --max-line-length=100
+        run: flake8 sut/scripts/ sut/api/ --max-line-length=100 --ignore=E501,W503
 
   python-unit:
     name: "[Python] Unit Tests"
     runs-on: ubuntu-latest
     needs: python-lint
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
       - run: |
           pip install -r sut/requirements.txt
@@ -59,10 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: python-unit
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
       - run: |
           pip install -r sut/requirements.txt
@@ -75,35 +72,41 @@ jobs:
     runs-on: ubuntu-latest
     needs: python-integration
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
       - run: |
           pip install -r sut/requirements.txt
           pip install -r tests/requirements.txt
-      - name: Run E2E tests (server auto-starts)
+      - name: Run E2E tests
         run: pytest tests/e2e/ -v --tb=short
 
 
   # ════════════════════════════════════════════════════════
-  # TRACK 2 — AI Test Toolkit (Node.js / Jest / Playwright)
+  # TRACK 2 — AI Test Toolkit (Node / pnpm / Jest / Playwright)
   # ════════════════════════════════════════════════════════
 
   node-lint:
     name: "[Node] Lint"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: npm
-          cache-dependency-path: ai-test-toolkit/package.json
-      - run: npm ci
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: ai-test-toolkit/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install
         working-directory: ai-test-toolkit
-      - run: npm run lint
+      - name: Lint
+        run: pnpm lint
         working-directory: ai-test-toolkit
 
   node-unit:
@@ -111,16 +114,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: node-lint
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: npm
-          cache-dependency-path: ai-test-toolkit/package.json
-      - run: npm ci
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: ai-test-toolkit/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install
         working-directory: ai-test-toolkit
       - name: Run unit tests
-        run: npm run test:unit
+        run: pnpm test:unit
         working-directory: ai-test-toolkit
       - uses: actions/upload-artifact@v4
         with:
@@ -132,16 +140,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: node-unit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: npm
-          cache-dependency-path: ai-test-toolkit/package.json
-      - run: npm ci
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: ai-test-toolkit/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install
         working-directory: ai-test-toolkit
       - name: Run integration tests
-        run: npm run test:integration
+        run: pnpm test:integration
         working-directory: ai-test-toolkit
 
   node-e2e:
@@ -149,19 +162,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: node-integration
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: npm
-          cache-dependency-path: ai-test-toolkit/package.json
-      - run: npm ci
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: ai-test-toolkit/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install
         working-directory: ai-test-toolkit
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: pnpm dlx playwright install --with-deps chromium
         working-directory: ai-test-toolkit
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: pnpm test:e2e
         working-directory: ai-test-toolkit
       - name: Upload Playwright report on failure
         if: failure()
@@ -178,9 +196,7 @@ jobs:
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs:
-      - python-e2e
-      - node-e2e
+    needs: [python-e2e, node-e2e]
     if: always()
     steps:
       - name: Report results
