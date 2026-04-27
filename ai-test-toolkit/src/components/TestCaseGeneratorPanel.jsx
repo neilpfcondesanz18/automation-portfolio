@@ -28,7 +28,6 @@ export default function TestCaseGeneratorPanel() {
   const handleSubmit = () => execute(input, format);
 
   const byType = result ? summariseByType(result) : {};
-  const byPriority = result ? summariseByPriority(result) : {};
 
   return (
     <div className="panel">

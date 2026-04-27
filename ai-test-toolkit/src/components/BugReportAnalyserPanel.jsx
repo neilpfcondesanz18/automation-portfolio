@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { analyseBugReport, severityColour, requiresEscalation } from '../modules/bugReportAnalyser';
+import { analyseBugReport, requiresEscalation } from '../modules/bugReportAnalyser';
 import { useAIModule } from '../hooks/useAIModule';
 
 const SAMPLE_BUG = `Title: NullPointerException on checkout when cart has expired items
