@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Test output — Python
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+logs/
+
+# Test output — Node
+node_modules/
+dist/
+ai-test-toolkit/coverage/
+ai-test-toolkit/playwright-report/
+ai-test-toolkit/test-results/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+# Environment files
+.env
+.env.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db

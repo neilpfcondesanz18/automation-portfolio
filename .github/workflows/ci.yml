@@ -1,0 +1,202 @@
+name: CI — Full Portfolio Pipeline
+
+# Runs on every push and pull request to main/develop
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ════════════════════════════════════════════════════════
+  # TRACK 1 — Automation Platform (Python / pytest)
+  # ════════════════════════════════════════════════════════
+
+  python-lint:
+    name: "[Python] Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install flake8 black
+      - name: Check formatting
+        run: black --check sut/scripts/ sut/api/
+      - name: Lint
+        run: flake8 sut/scripts/ sut/api/ --max-line-length=100
+
+  python-unit:
+    name: "[Python] Unit Tests"
+    runs-on: ubuntu-latest
+    needs: python-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          pip install -r sut/requirements.txt
+          pip install -r tests/requirements.txt
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ \
+            --cov=sut/scripts \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80 \
+            -v
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-unit-coverage
+          path: coverage.xml
+
+  python-integration:
+    name: "[Python] Integration Tests"
+    runs-on: ubuntu-latest
+    needs: python-unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          pip install -r sut/requirements.txt
+          pip install -r tests/requirements.txt
+      - name: Run integration tests
+        run: pytest tests/integration/ -v
+
+  python-e2e:
+    name: "[Python] E2E Tests"
+    runs-on: ubuntu-latest
+    needs: python-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          pip install -r sut/requirements.txt
+          pip install -r tests/requirements.txt
+      - name: Run E2E tests (server auto-starts)
+        run: pytest tests/e2e/ -v --tb=short
+
+
+  # ════════════════════════════════════════════════════════
+  # TRACK 2 — AI Test Toolkit (Node.js / Jest / Playwright)
+  # ════════════════════════════════════════════════════════
+
+  node-lint:
+    name: "[Node] Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: ai-test-toolkit/package.json
+      - run: npm ci
+        working-directory: ai-test-toolkit
+      - run: npm run lint
+        working-directory: ai-test-toolkit
+
+  node-unit:
+    name: "[Node] Unit Tests"
+    runs-on: ubuntu-latest
+    needs: node-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: ai-test-toolkit/package.json
+      - run: npm ci
+        working-directory: ai-test-toolkit
+      - name: Run unit tests
+        run: npm run test:unit
+        working-directory: ai-test-toolkit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: node-unit-coverage
+          path: ai-test-toolkit/coverage/
+
+  node-integration:
+    name: "[Node] Integration Tests"
+    runs-on: ubuntu-latest
+    needs: node-unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: ai-test-toolkit/package.json
+      - run: npm ci
+        working-directory: ai-test-toolkit
+      - name: Run integration tests
+        run: npm run test:integration
+        working-directory: ai-test-toolkit
+
+  node-e2e:
+    name: "[Node] E2E Tests (Playwright)"
+    runs-on: ubuntu-latest
+    needs: node-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: ai-test-toolkit/package.json
+      - run: npm ci
+        working-directory: ai-test-toolkit
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ai-test-toolkit
+      - name: Run E2E tests
+        run: npm run test:e2e
+        working-directory: ai-test-toolkit
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: ai-test-toolkit/playwright-report/
+
+
+  # ════════════════════════════════════════════════════════
+  # SUMMARY — both tracks must pass
+  # ════════════════════════════════════════════════════════
+
+  summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs:
+      - python-e2e
+      - node-e2e
+    if: always()
+    steps:
+      - name: Report results
+        run: |
+          echo "╔══════════════════════════════════════╗"
+          echo "║       CI PIPELINE SUMMARY            ║"
+          echo "╠══════════════════════════════════════╣"
+          echo "║  PYTHON TRACK                        ║"
+          echo "║  Lint         : ${{ needs.python-lint.result }}"
+          echo "║  Unit tests   : ${{ needs.python-unit.result }}"
+          echo "║  Integration  : ${{ needs.python-integration.result }}"
+          echo "║  E2E          : ${{ needs.python-e2e.result }}"
+          echo "╠══════════════════════════════════════╣"
+          echo "║  NODE TRACK                          ║"
+          echo "║  Lint         : ${{ needs.node-lint.result }}"
+          echo "║  Unit tests   : ${{ needs.node-unit.result }}"
+          echo "║  Integration  : ${{ needs.node-integration.result }}"
+          echo "║  E2E          : ${{ needs.node-e2e.result }}"
+          echo "╚══════════════════════════════════════╝"
